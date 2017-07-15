@@ -1,0 +1,254 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/vue.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+    .info {
+        background-color: #F3C863;
+    }
+    
+    .todo, .open {
+        background-color: #3162F6;
+    }
+    
+    .requirement {
+        background-color: #8073B1;
+    }
+    
+    .closed {
+        background-color: #09D261;
+    }
+
+    h1.title{
+        font-weight: normal;
+        /*font-family: Palatino, Georgia, "Times New Roman", Times, serif;*/
+    }
+    </style>
+</head>
+
+<body>
+    <div class="markdown-body" id="app">
+        <div v-if="!title">
+            <pre>
+                <code>
+# TITLE
+
+```meta
+date: DATE
+venue: VENUE
+project: PROJECT
+```
+
+## Minutes taker
+|:---|:---|
+| NAME | EMAIL |
+
+## Attendees
+|:---|:---|
+| NAME | EMAIL |
+
+----
+
+## ITEM 1
+- lorem
+                </code>
+            </pre>
+        </div>
+        <table v-if="title" class="wrapper maintable">
+            <tr>
+                <td>
+                    <header>
+                        <small>{{ metas.project }}</small>
+                        <h1 class="title">{{ title }}</h1>
+                        <small>{{ metas.date }} | {{  metas.venue }}</small>
+                    </header>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:20px !important; ">
+                    <table class="maintable" cellspacing="0" cellpadding="0" align="left" border="0">
+                        <tbody>
+                            <tr v-for="(content, item) in metas.items">
+                                <td>
+                                    <table cellspacing="0" cellpadding="0" align="left" border="0" bgcolor="#ffffff">
+                                        <thead>
+                                            <tr>
+                                                <th>{{item}}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td v-html="content"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div class="space"></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <h4>Notes of Meeting</h4>
+                                </td>
+                            </tr>
+                            <tr v-for="(topic,i) in topics">
+                                <td>
+                                    <table cellspacing="0" cellpadding="0" align="left" border="0" bgcolor="#ffffff">
+                                        <thead>
+                                            <tr>
+                                                <th width="20px">{{ i + 1 }}.0</th>
+                                                <th colspan="2">{{topic.title }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(item, j) in topic.items">
+                                                <td class="muted">{{i + 1}}.{{ j + 1 }}</td>
+                                                <td v-html="item.content"></td>
+                                                <td width="40px"><span v-for="tag in item.tags" class="label label-default" :class="tag">{{ tag.toUpperCase() }}</span></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div class="space"></div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <div class="clearfix"></div>
+    </div>
+    <div id="source" class="markdown-body" style="display: none;" data-document></div>
+</body>
+<script>
+var app = new Vue({
+    el: '#app',
+    data: {
+        title: '',
+        metas: {},
+        topics: {}
+    },
+    components: {
+        baseimg: {
+            template: "fooobar"
+        }
+    }
+})
+var container = $("#source");
+var output = $(".output");
+container.on('ia-writer-change', function() {
+    var data = container.html();
+    var groups = data.split("<hr>");
+    var details = jQuery.parseHTML(groups[0]);
+    var content = jQuery.parseHTML(groups[1]);
+    var metas = {};
+    $(details).find(".meta").html().split("\n").filter(function(content) {
+        return content != ""
+    }).map(function(content) {
+        var sep = content.indexOf(":");
+        var key = content.substring(0, sep);
+        var value = content.substring(sep + 1).trim();
+        metas[key] = value;
+    });
+
+    // DETAILS
+    var attr = [];
+    var attrs = {};
+    var attr_key = 0;
+
+    details.map(function(node) {
+        if (node.nodeName == 'H2') {
+            if (attr_key)
+                attrs[attr_key] = attr;
+            attr_key = $(node).text();
+            attr = [];
+        } else {
+            var content = $(node).wrap("<div>").parent().html();
+            if (content.trim() != "") {
+                attr = content;
+            }
+        }
+    });
+    attrs[attr_key] = attr;
+
+    // CONTENTS
+    var topic = 0;
+    var topics = [];
+    content.map(function(node) {
+        if (node.nodeName == 'H2') {
+            //this is topic
+            //// save old topic
+            if (topic) topics.push(topic);
+
+            //// make new topic
+            var topic_title = $(node).html();
+            topic = {
+                title: topic_title,
+                items: []
+            }
+        } else {
+            if (node.nodeName == '#text') return;
+            $(node).children().map(function(i, point) {
+                var topic_item = {
+                    content: $(point).html(),
+                    tags: []
+                }
+                var tags = $(point).find("code:contains('@')");
+                if (tags.length > 0) {
+                    tags.map(function(i, tag) {
+                        topic_item.content = (topic_item.content.replace(/\<code>\@[^>]+\>/, ""));
+                        tag = $(tag).html().replace("@", "");
+                        topic_item.tags.push(tag);
+                    })
+                }
+
+                //console.log(topic_item);
+                topic.items.push(topic_item);
+            });
+        }
+    });
+    topics.push(topic);
+
+
+    app.$data.metas = metas;
+    app.$data.metas.items = attrs;
+    app.$data.title = $(details[1]).text() + $(details[0]).text();
+    app.$data.topics = topics;
+
+    $("img").map(function(i, _img) {
+        var src = $(_img).attr('src');
+        var img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = function() {
+            var canvas = document.createElement('CANVAS');
+            var ctx = canvas.getContext('2d');
+            var dataURL;
+            canvas.height = this.height;
+            canvas.width = this.width;
+            ctx.drawImage(this, 0, 0);
+            dataURL = canvas.toDataURL('image/png');
+            $(_img).attr('src', dataURL);
+            $(`img[src="${src}"]`).replaceWith(_img);
+        };
+        img.src = src;
+    });
+
+    app.$nextTick(function() {
+        $("td:has(table)").map(function(i, node) {
+            if ($(node).children().first().is('table'))
+                $(node).addClass("no-padding");
+        })
+        $("table:not(.maintable)").addClass("table");
+    })
+
+
+})
+</script>
+
+</html>
