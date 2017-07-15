@@ -10,4 +10,4 @@ Custom iAWrite template for taking Minutes of Meeting.
 ## Preview
 
 <img src="blank_template.png" width="600" alt="Template Preview">
-<img src="sample .png" width="600" alt="Template Preview">
+<img src="sample.png" width="600" alt="Template Preview">
